@@ -1,0 +1,5 @@
+input[type="color"] { width: 3.2em; height: 2.2em; padding: 2px; cursor: pointer; }
+td input:not([type="color"]) { width: 11em; }
+td.soft { font-size: 0.9em; }
+#limit { vertical-align: middle; }
+img.sign { display: block; background: #fff; border-radius: 10px; border: 1px solid #d0d4da; }

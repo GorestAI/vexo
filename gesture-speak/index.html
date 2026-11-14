@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; media-src 'self' blob:">
+<title>Gesture to speech - band 35</title>
+<link rel="icon" href="../shared/icon.png">
+<link rel="stylesheet" href="../shared/style.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h1>Gesture to speech</h1>
+<p>Connect, and the page teaches itself: it shows one gesture at a time and you do it three times, with a short rest
+in between. No buttons. After the last one it keeps listening: every gesture you make is written down and spoken out loud,
+for as long as you stay connected.</p>
+<div class="card row">
+  <label>Band number <input id="number" inputmode="numeric" maxlength="13" placeholder="XX" value="35"></label>
+  <select id="link" aria-label="How to connect">
+    <option value="ble">Bluetooth</option>
+    <option value="serial">USB cable</option>
+    <option value="pretend">Pretend band (no hardware)</option>
+  </select>
+  <button id="connect">Connect</button>
+  <button id="disconnect" disabled>Disconnect</button>
+</div>
+<p id="needs-server"><b>Connect does nothing?</b> Open this page through the web server:
+<code>http://localhost:3000/gesture-speak/</code> in Chrome or Edge.</p>
+<p id="message" role="status">Double-tap your band and press Connect.</p>
+<div class="card row pretend-only" hidden>
+  <span><span id="light"></span> The pretend band's light is <span id="light-text">off</span>.</span>
+  <button id="pretend-circle" disabled>Circle</button>
+  <button id="pretend-shake" disabled>Shake</button>
+  <button id="pretend-flick" disabled>Flick</button>
+  <button id="pretend-punch" disabled>Punch</button>
+  <button id="pretend-drop" disabled>Lose the link</button>
+</div>
+<div class="card">
+  <table>
+    <tr><th>Phrase to say</th><th>Gesture</th><th>Colour</th><th></th><th>Examples</th><th></th></tr>
+    <tr>
+      <td><input id="name-0" value="Hello" maxlength="60" aria-label="Phrase 1"></td>
+      <td><img class="sign" src="signs/hello.svg" width="120" height="90" alt="Wave: hand up, swing left-right twice" title="Wave: hand up, swing left-right twice"></td>
+      <td><input id="colour-0" type="color" value="#34c759" aria-label="Colour of phrase 1"></td>
+      <td><button id="record-0" disabled>Redo</button></td><td id="count-0">0 of 3</td>
+      <td><button id="speak-0">Hear it</button></td>
+    </tr>
+    <tr>
+      <td><input id="name-1" value="How are you?" maxlength="60" aria-label="Phrase 2"></td>
+      <td><img class="sign" src="signs/how.svg" width="120" height="90" alt="Roll: one forward circle with the forearm" title="Roll: one forward circle with the forearm"></td>
+      <td><input id="colour-1" type="color" value="#0a84ff" aria-label="Colour of phrase 2"></td>
+      <td><button id="record-1" disabled>Redo</button></td><td id="count-1">0 of 3</td>
+      <td><button id="speak-1">Hear it</button></td>
+    </tr>
+    <tr>
+      <td><input id="name-2" value="Thank you" maxlength="60" aria-label="Phrase 3"></td>
+      <td><img class="sign" src="signs/thanks.svg" width="120" height="90" alt="Chin out: hand from chin, forward and down" title="Chin out: hand from chin, forward and down"></td>
+      <td><input id="colour-2" type="color" value="#ff9f0a" aria-label="Colour of phrase 3"></td>
+      <td><button id="record-2" disabled>Redo</button></td><td id="count-2">0 of 3</td>
+      <td><button id="speak-2">Hear it</button></td>
+    </tr>
+    <tr>
+      <td><input id="name-3" value="Nice to meet you" maxlength="60" aria-label="Phrase 4"></td>
+      <td><img class="sign" src="signs/meet.svg" width="120" height="90" alt="Push: one straight punch forward and back" title="Push: one straight punch forward and back"></td>
+      <td><input id="colour-3" type="color" value="#bf5af2" aria-label="Colour of phrase 4"></td>
+      <td><button id="record-3" disabled>Redo</button></td><td id="count-3">0 of 3</td>
+      <td><button id="speak-3">Hear it</button></td>
+    </tr>
+  </table>
+  <p class="row">
+    <label>How strict (lower = stricter) <input id="limit" type="range" min="0.2" max="2" step="0.05" value="0.8"></label>
+    <span id="limit-text">0.80</span>
+    <button id="forget">Forget all gestures</button>
+    <label><input id="ai" type="checkbox" checked> AI sentences (gestures made in a row are joined into one sentence)</label>
+  </p>
+</div>
+<div class="card">
+  <p class="row"><img id="now-sign" class="sign" width="120" height="90" alt="" hidden> <span id="status" class="big">Not connected</span></p>
+  <p id="detail" class="soft">The last gesture the recogniser cut out of the motion is drawn here.</p>
+  <canvas id="picture" width="720" height="220"></canvas>
+  <p class="soft">Red, green, blue: acceleration x, y, z. Orange, purple, cyan: turning speed x, y, z.</p>
+</div>
+<div class="card">
+  <p class="row"><b>Said so far</b> <span id="voice" class="soft"></span> <button id="clear">Clear</button></p>
+  <p id="spoken">Nothing yet.</p>
+</div>
+<script type="module" src="trainer.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 90" width="120" height="90"><defs><marker id="a" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#0a84ff"/></marker></defs>
+<g fill="none" stroke="#8a8f98" stroke-width="2.2" stroke-linecap="round">
+<circle cx="30" cy="28" r="17"/><path d="M30,45 v8 M8,78 q4,-22 22,-25 q18,3 22,25"/>
+<circle cx="35" cy="25" r="1.4" fill="#8a8f98"/><path d="M36,34 q4,3 8,0"/></g>
+<path d="M62,46 Q84,50 100,72" fill="none" stroke="#0a84ff" stroke-width="2.2" stroke-dasharray="4 4" stroke-linecap="round" marker-end="url(#a)"/>
+<g><animateTransform attributeName="transform" type="translate" values="0 0;40 24;40 24;0 0" keyTimes="0;0.45;0.75;1" dur="1.6s" repeatCount="indefinite"/>
+<g transform="translate(47,48) rotate(62) scale(0.6)"><g fill="#f2c79b" stroke="#8a5a2b" stroke-width="1.6" stroke-linejoin="round">
+<rect x="-7" y="-2" width="14" height="34" rx="5"/>
+<rect x="-12.5" y="-45" width="5.6" height="22" rx="2.8"/>
+<rect x="-6.1" y="-49" width="5.6" height="26" rx="2.8"/>
+<rect x="0.3" y="-47" width="5.6" height="24" rx="2.8"/>
+<rect x="6.7" y="-41" width="5.6" height="18" rx="2.8"/>
+<rect x="-19" y="-22" width="7" height="17" rx="3.5" transform="rotate(-25 -13 -4)"/>
+<rect x="-13" y="-27" width="26" height="27" rx="7"/>
+</g></g></g></svg>

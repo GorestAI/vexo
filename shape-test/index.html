@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'">
+<title>Hand shape test - band 35</title>
+<link rel="icon" href="../shared/icon.png">
+<link rel="stylesheet" href="../shared/style.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h1>Can the band feel hand shapes?</h1>
+<p>A test, not a demo. Rest your forearm on the table so the arm cannot move, hand loose. The page asks for
+a hand shape 24 times. Make the shape when it appears, hold it, and let go when it says "Relax".
+At the end it tells you how often it could name the shape from the wrist alone.</p>
+<div class="card row">
+  <label>Band number <input id="number" inputmode="numeric" maxlength="13" placeholder="XX" value="35"></label>
+  <select id="link" aria-label="How to connect">
+    <option value="ble">Bluetooth</option>
+    <option value="serial">USB cable</option>
+    <option value="pretend">Pretend band (no hardware)</option>
+  </select>
+  <button id="connect">Connect</button>
+  <button id="disconnect" disabled>Disconnect</button>
+</div>
+<p id="needs-server"><b>Connect does nothing?</b> Open <code>http://localhost:3000/vexo-project/shape-test/</code> in Chrome or Edge.</p>
+<p id="message" role="status">Close other pages that use the band, double-tap it and press Connect.</p>
+<div class="card row pretend-only" hidden>
+  <span><span id="light"></span> The pretend band's light is <span id="light-text">off</span>.</span>
+  <label><input id="pretend-same" type="checkbox"> Pretend hand makes the same movement for every shape</label>
+</div>
+<div class="card">
+  <p class="row"><button id="start" disabled>Start the test</button> <span id="progress" class="soft"></span></p>
+  <p id="cue" class="big">Not connected</p>
+  <p id="hint" class="soft">Three shapes: Fist, Flat hand (fingers straight and together), Point (index finger out).</p>
+</div>
+<div class="card" id="result" hidden>
+  <p id="score" class="big"></p>
+  <p id="verdict"><b></b></p>
+  <table id="table"></table>
+  <p id="size" class="soft"></p>
+</div>
+<script type="module" src="test.js"></script>
+</body>
+</html>
