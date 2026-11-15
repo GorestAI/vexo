@@ -52,10 +52,18 @@ function shake(perSecond, times = 3) {
   return [shape, times / perSecond];
 }
 
+const STILL = { ax: 0, ay: 0, az: 1, gx: 0, gy: 0, gz: 0 };
+/** The same motion twice, with a short stop between: long enough to end the first burst. */
+function twice([shape, seconds], pause = 0.5) {
+  return [(s) => (s < seconds ? shape(s) : s < seconds + pause ? STILL : shape(s - seconds - pause)), 2 * seconds + pause];
+}
+
 export const MOTIONS = {
   slow: shake(2),                        // about 2 shakes a second
   medium: shake(4),                      // about 4
   fast: shake(7),                        // about 7
+  slow2: twice(shake(2)),                // slow, stop, slow
+  fast2: twice(shake(7)),                // fast, stop, fast
   up: trip([1, 0, 0], 1.0),              // hand straight up high
   mouth: trip([0.7, 0.7, 0], 1.0),       // hand up to the mouth, thumb toward you
   heart: trip([0, -1, 0], 0.9),          // forearm across the chest, palm in

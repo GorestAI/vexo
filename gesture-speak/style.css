@@ -11,3 +11,25 @@ img.sign { display: block; background: #fff; border-radius: 10px; border: 1px so
 #script li.now { background: color-mix(in srgb, var(--accent) 16%, transparent); outline: 2px solid var(--accent); }
 #script li.done { opacity: 0.5; }
 @media (max-width: 560px) { #script li { flex-wrap: wrap; } }
+#live { font-size: 1.9rem; font-weight: 600; line-height: 1.3; min-height: 1.3em; margin: 6px 0; }
+#live.guess, .talk p.guess { opacity: 0.6; }
+.talk { max-height: 16em; overflow-y: auto; }
+.talk p { margin: 4px 0; padding: 6px 10px; border-radius: 10px; max-width: 80%; }
+.talk p.me { margin-left: auto; background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.talk p.them { background: color-mix(in srgb, var(--soft) 18%, transparent); }
+#captions-state.warn { color: #d9480f; font-weight: 600; }
+#meter { position: relative; display: flex; height: 2.4em; border-radius: 10px; overflow: hidden; margin: 6px 0; font-weight: 700; }
+#meter-slow, #meter-fast { display: flex; align-items: center; padding: 0 10px; color: #fff; }
+#meter-slow { background: #0a84ff; }
+#meter-fast { background: #ff9500; flex: 1; justify-content: flex-end; }
+#needle { position: absolute; top: 0; bottom: 0; width: 6px; margin-left: -3px; background: var(--ink); border: 2px solid var(--card); border-radius: 3px; left: 0; transition: left 0.1s linear; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(16em, 1fr)); gap: 10px; }
+.tile { border: 2px solid var(--line); border-radius: 12px; padding: 8px 12px; transition: background 0.2s; }
+.tile.slow { border-color: #0a84ff; }
+.tile.fast { border-color: #ff9500; }
+.tile input { width: 100%; min-width: 0; flex: 1; }
+.tile img.sign { width: 96px; height: 72px; }
+.tile.hit { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+#caption-bar { position: sticky; top: 0; z-index: 5; margin-top: 0; box-shadow: 0 4px 12px rgb(0 0 0 / 0.15); }
+#caption-bar p { margin: 4px 0; }
+#live:empty::before { content: 'What the other person says shows here.'; opacity: 0.45; font-weight: 400; }

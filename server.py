@@ -107,12 +107,14 @@ class Handler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_POST(self):
-        if self.path not in ("/speak", "/sentence"):
+        if self.path not in ("/speak", "/sentence", "/listen-token"):
             return self.send_error(404)
         # Only this computer's own pages may ask: a web site open in another tab may not.
         origin = self.headers.get("Origin", "")
         if origin not in ("http://localhost:%d" % PORT, "http://127.0.0.1:%d" % PORT):
             return self.send_error(403)
+        if self.path == "/listen-token":
+            return self.do_listen_token()
         try:
             length = int(self.headers.get("Content-Length", "0"))
             asked = json.loads(self.rfile.read(min(length, 4096)))
@@ -135,6 +137,28 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(sound)))
         self.end_headers()
         self.wfile.write(sound)
+
+    def do_listen_token(self):
+        """Live captions: a Deepgram key that works for 30 seconds, long enough to open the
+        connection. The page uses it to send the band's microphone to Deepgram; the real key
+        stays here."""
+        key = env("DEEPGRAM_API_KEY")
+        if not key:
+            return self.send_error(503, "No DEEPGRAM_API_KEY in .env")
+        try:
+            request = urllib.request.Request("https://api.deepgram.com/v1/auth/grant", data=b"{}", method="POST",
+                                             headers={"Authorization": "Token " + key, "Content-Type": "application/json"})
+            with urllib.request.urlopen(request, timeout=10, context=TRUST) as answer:
+                token = json.loads(answer.read())["access_token"]
+        except Exception as e:
+            print("listen-token failed:", e, file=sys.stderr)
+            return self.send_error(502, "Deepgram did not give a token")
+        answer = json.dumps({"token": token}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(answer)))
+        self.end_headers()
+        self.wfile.write(answer)
 
     def do_sentence(self, asked):
         """{"phrases": ["Hello", "How are you?"]} -> {"text": "Hello, how are you?"}"""

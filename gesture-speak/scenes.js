@@ -3,6 +3,9 @@
 // to hip, then shake slow, medium, fast). A scene with a
 // script also shows the lines of the other person, so a demo can be acted out step by step.
 // `row` in a script step is the table row whose gesture answers that line.
+//
+// `rhythm` is the same for the shake rhythm, where nothing is taught: four phrases for
+// slow shake, fast shake, slow x2 and fast x2, and a script whose `cmd` is one of those four.
 
 export const SCENES = {
   basic: {
@@ -10,6 +13,10 @@ export const SCENES = {
     phrases: ['Hello', 'How are you?', 'Thank you', 'Nice to meet you', 'Yes', 'No', "Sorry, I can't hear you.", 'Goodbye',
       'Wait a moment', 'Excuse me', 'Help me!'],
     script: null,
+    rhythm: {
+      phrases: ['Yes', 'No', "Sorry, I can't hear you. Please type or point.", 'Help me, please!'],
+      script: null,
+    },
   },
   cafe: {
     title: 'Ordering a coffee',
@@ -39,5 +46,15 @@ export const SCENES = {
       { they: 'Here you go, one hot latte!', row: 2 },
       { they: '(You turn to leave.)', row: 7 },
     ],
+    rhythm: {
+      phrases: ['Yes, please.', 'No, thank you.', "Hi! I'm deaf, but I can read what you say here.", 'A hot latte, please.'],
+      script: [
+        { they: '(You walk up to the counter.)', cmd: 2 },
+        { they: 'Oh, okay! What can I get you?', cmd: 3 },
+        { they: 'Any sugar?', cmd: 1 },
+        { they: 'Is it for here?', cmd: 0 },
+        { they: "That's five dollars. Card is fine?", cmd: 0 },
+      ],
+    },
   },
 };
