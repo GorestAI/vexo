@@ -35,7 +35,27 @@ function trip(target, seconds, roll = [1, 0, 0]) {
   return [shape, seconds];
 }
 
+/**
+ * Shaking: the forearm twists left and right `times` times, `perSecond` times a second.
+ * Every speed turns at the same top speed (so a faster shake is a smaller one, as a real
+ * wrist does), and every one is the same number of shakes: after the recogniser stretches
+ * them to one length they look alike, and only the shake rate tells them apart.
+ */
+function shake(perSecond, times = 3) {
+  const top = 300;                                         // degrees/second at the middle of each swing
+  const swing = top / (2 * Math.PI * perSecond);           // degrees either side
+  const shape = (s) => {
+    const phase = 2 * Math.PI * perSecond * s;
+    const angle = (swing * Math.sin(phase) * Math.PI) / 180;
+    return { ax: 0, ay: Math.sin(angle), az: Math.cos(angle), gx: top * Math.cos(phase), gy: 0, gz: 0 };
+  };
+  return [shape, times / perSecond];
+}
+
 export const MOTIONS = {
+  slow: shake(2),                        // about 2 shakes a second
+  medium: shake(4),                      // about 4
+  fast: shake(7),                        // about 7
   up: trip([1, 0, 0], 1.0),              // hand straight up high
   mouth: trip([0.7, 0.7, 0], 1.0),       // hand up to the mouth, thumb toward you
   heart: trip([0, -1, 0], 0.9),          // forearm across the chest, palm in

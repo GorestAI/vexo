@@ -4,7 +4,8 @@
 // project's own server at /speak; the browser's voice if that does not answer).
 // Built on the kit's gesture trainer (recogniser.js is the kit's, unchanged).
 import { $, say, attempt, onConnect } from '../shared/page.js';
-import { Segmenter, toShape, match, distance, GYRO_SCALE } from './recogniser.js';
+import { Segmenter, GYRO_SCALE } from './recogniser.js';
+import { features, match, distance, rate } from './rhythm.js';
 import { MOTIONS } from './motions.js';
 import { SCENES } from './scenes.js';
 
@@ -13,7 +14,7 @@ const EXAMPLES = 3;              // how many times you show each gesture
 const SETTLE_MS = 1500;          // after a phrase is learned: time to bring the arm back, nothing counts
 const PAUSE_MS = 1500;           // AI sentences: the hand still for this long ends the sentence
 const RETRIES = 2;               // how often an odd example is thrown out before the row is taken as it is
-const STORE = 'gesture-speak-v4';   // examples and phrases are kept in this browser, so a reload keeps them (v4: elevation poses)
+const STORE = 'gesture-speak-v5';   // examples and phrases are kept in this browser, so a reload keeps them (v5: shapes end with the shake rate)
 const LINES = { ax: '#ff5c5c', ay: '#5cd65c', az: '#5c9dff', gx: '#ffa13d', gy: '#c77dff', gz: '#3dd6d6' };
 
 const segmenter = new Segmenter();
@@ -218,7 +219,7 @@ async function endSentence() {
 function onGesture(gesture) {
   if (Date.now() < ignoreUntil) return;
   draw(gesture);
-  const shape = toShape(gesture);
+  const shape = features(gesture);
   const seconds = ((gesture[gesture.length - 1].t - gesture[0].t) / 1000).toFixed(1);
   if (recording !== -1) {
     const g = recording;
@@ -248,7 +249,7 @@ function onGesture(gesture) {
   if (!trained()) return;
   const candidates = examples.flatMap((list, g) => list.map((one) => ({ label: g, shape: one })));
   const found = match(shape, candidates, limit());
-  const detail = `${seconds} seconds. Distance to the nearest example: ${found.distance.toFixed(2)} (not sure above ${limit().toFixed(2)}).`;
+  const detail = `${seconds} seconds, ${rate(gesture).toFixed(1)} shakes a second. Distance to the nearest example: ${found.distance.toFixed(2)} (not sure above ${limit().toFixed(2)}).`;
   if (found.label === null) {
     show('Not sure', detail);
     attempt(band.ledOff());
