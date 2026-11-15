@@ -21,6 +21,8 @@ try {
   }
   cpSync(join(kit, 'js/src'), 'dist/vexo-open-kit/js/src', { recursive: true });
   cpSync(join(kit, 'LICENSE'), 'dist/vexo-open-kit/LICENSE');
+  mkdirSync('dist/vexo-open-kit/dashboard/speech', { recursive: true });
+  cpSync(join(kit, 'dashboard/speech/sample-speech.opus'), 'dist/vexo-open-kit/dashboard/speech/sample-speech.opus');
 } finally {
   rmSync(kit, { recursive: true, force: true });
 }
