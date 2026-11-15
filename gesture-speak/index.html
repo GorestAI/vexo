@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; media-src 'self' blob:">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' wss://api.deepgram.com/v1/listen https://cdn.jsdelivr.net https://storage.googleapis.com; img-src 'self' data:; media-src 'self' blob:">
 <title>Gesture to speech - band 35</title>
 <link rel="icon" href="../shared/icon.png">
 <link rel="stylesheet" href="../shared/style.css">
@@ -11,9 +11,14 @@
 </head>
 <body>
 <h1>Gesture to speech</h1>
-<p>Connect, and the page teaches itself: it shows one gesture at a time and you do it three times, with a short rest
-in between. No buttons. After the last one it keeps listening: every gesture you make is written down and spoken out loud,
-for as long as you stay connected.</p>
+<div class="card" id="caption-bar">
+  <p class="row"><label><input id="captions" type="checkbox"> <b>Live captions</b>: what the other person says</label>
+    <span id="captions-state" class="soft">Captions off.</span></p>
+  <p id="live" aria-live="polite"></p>
+</div>
+<p>For a deaf person talking with someone who can hear. Shake your wrist and the page says a phrase out loud;
+switch on live captions and what the other person says is written on the screen. Nothing to teach: a slow or a fast
+shake, once or twice, is all it needs. (Prefer your own gestures? Choose "Gestures you teach".)</p>
 <div class="card row">
   <label>Band number <input id="number" inputmode="numeric" maxlength="13" placeholder="XX" value="35"></label>
   <select id="link" aria-label="How to connect">
@@ -37,9 +42,85 @@ for as long as you stay connected.</p>
   <button id="pretend-down" disabled>Arm down</button>
   <button id="pretend-lowpalm" disabled>Low palm out</button>
   <button id="pretend-hip" disabled>To hip</button>
+  <button id="pretend-slow" disabled>Shake slow</button>
+  <button id="pretend-medium" disabled>Shake medium</button>
+  <button id="pretend-fast" disabled>Shake fast</button>
+  <button id="pretend-slow2" disabled>Slow ×2</button>
+  <button id="pretend-fast2" disabled>Fast ×2</button>
+  <button id="pretend-voice" disabled>Someone speaks</button>
   <button id="pretend-drop" disabled>Lose the link</button>
 </div>
-<div class="card">
+<div class="card" id="conversation">
+  <p class="row"><b>Conversation</b> <span id="voice" class="soft"></span> <button id="clear">Clear</button></p>
+  <div id="spoken" class="talk"><p>Nothing yet.</p></div>
+</div>
+<div class="card row">
+  <label>Recognise <select id="mode" aria-label="How gestures are recognised">
+    <option value="rhythm">Shake rhythm (nothing to teach)</option>
+    <option value="draw">Draw in the air (camera) + shakes</option>
+    <option value="taught">Gestures you teach</option>
+  </select></label>
+  <label>Scene <select id="scene" aria-label="Phrase set"></select></label>
+  <label><input id="ai" type="checkbox"> AI sentences (phrases made in a row are joined into one sentence)</label>
+</div>
+<div class="card" id="draw-card" hidden>
+  <p class="row"><b>Draw in the air</b> <button id="camera">Start camera</button>
+    <span id="camera-state" class="soft">Camera off.</span></p>
+  <p class="soft">Make a <b>fist</b> to start drawing, move it to draw, <b>open your hand</b> when it is done (with the band on,
+    holding the fist still works too). A simple shape says its phrase at once; anything else, the AI guesses, and you
+    confirm before it is said. No camera? Draw on the board with the mouse or a finger. The board shows only your lines and a dot for your hand: the camera picture is never shown, and it stays on this computer.</p>
+  <p class="row"><label>What a drawing means <select id="guess-mode">
+    <option value="rest">Simple shapes; the AI guesses anything else</option>
+    <option value="all">The AI guesses every drawing</option>
+    <option value="off">Simple shapes only</option>
+  </select></label></p>
+  <p class="row"><label>Board size <input id="board-size" type="range" min="40" max="100" step="5" value="70"></label>
+    <button id="board-full">Full screen</button></p>
+  <div id="board">
+    <button id="board-exit">Leave full screen (Esc)</button>
+    <p id="board-caption" aria-hidden="true"></p>
+    <div id="stage"><video id="video" playsinline muted></video><canvas id="ink" width="640" height="480"></canvas>
+      <span id="pen-state"></span></div>
+    <p id="board-said" aria-hidden="true"></p>
+    <div id="guess" class="row" hidden><b id="guess-text"></b> <button id="guess-yes">Say it</button> <button id="guess-no">No</button>
+      <span class="soft">or: draw a check / shake slowly to say it, draw a line / shake fast to drop it</span></div>
+  </div>
+  <div class="shapes" id="shape-tiles"></div>
+</div>
+<div class="card" id="rhythm-card">
+  <p class="row"><b>How fast you are shaking</b> <span id="meter-text" class="soft">not shaking</span></p>
+  <p id="motion-rate" class="soft">Band not connected.</p>
+  <div id="meter" aria-hidden="true"><div id="meter-slow">slow</div><div id="meter-fast">fast</div><div id="needle"></div></div>
+  <p class="row soft"><label>Slow below, fast from <input id="boundary" type="range" min="2" max="6" step="0.25" value="3.5"></label>
+    <span id="boundary-text">3.5</span> shakes a second</p>
+  <div class="tiles">
+    <div class="tile slow" id="tile-0">
+      <div class="row"><img class="sign" src="signs/shake-slow.svg" width="96" height="72" alt="Turn the wrist left and right slowly, about 2 a second, then stop."><b>Slow shake</b></div>
+      <p class="soft">Turn the wrist left and right slowly, about 2 a second, then stop.</p>
+      <p class="row"><input id="rname-0" value="Yes" maxlength="60" aria-label="Phrase for Slow shake">
+        <button id="rspeak-0">Hear it</button></p>
+    </div>
+    <div class="tile fast" id="tile-1">
+      <div class="row"><img class="sign" src="signs/shake-fast.svg" width="96" height="72" alt="Shake as fast as you can for a moment, then stop."><b>Fast shake</b></div>
+      <p class="soft">Shake as fast as you can for a moment, then stop.</p>
+      <p class="row"><input id="rname-1" value="No" maxlength="60" aria-label="Phrase for Fast shake">
+        <button id="rspeak-1">Hear it</button></p>
+    </div>
+    <div class="tile slow" id="tile-2">
+      <div class="row"><img class="sign" src="signs/shake-slow.svg" width="96" height="72" alt="A slow shake, stop for half a second, a slow shake again."><b>Slow shake ×2</b></div>
+      <p class="soft">A slow shake, stop for half a second, a slow shake again.</p>
+      <p class="row"><input id="rname-2" value="Sorry, I can't hear you. Please type or point." maxlength="60" aria-label="Phrase for Slow shake ×2">
+        <button id="rspeak-2">Hear it</button></p>
+    </div>
+    <div class="tile fast" id="tile-3">
+      <div class="row"><img class="sign" src="signs/shake-fast.svg" width="96" height="72" alt="A fast shake, stop for half a second, a fast shake again."><b>Fast shake ×2</b></div>
+      <p class="soft">A fast shake, stop for half a second, a fast shake again.</p>
+      <p class="row"><input id="rname-3" value="Help me, please!" maxlength="60" aria-label="Phrase for Fast shake ×2">
+        <button id="rspeak-3">Hear it</button></p>
+    </div>
+  </div>
+</div>
+<div class="card" id="taught-card">
   <table>
     <tr><th>Phrase to say</th><th>Gesture</th><th>Colour</th><th></th><th>Examples</th><th></th></tr>
     <tr>
@@ -85,7 +166,7 @@ for as long as you stay connected.</p>
       <td><button id="speak-5">Hear it</button></td>
     </tr>
     <tr>
-      <td><input id="name-6" value="Help me" maxlength="60" aria-label="Phrase 7"></td>
+      <td><input id="name-6" value="Sorry, I can't hear you." maxlength="60" aria-label="Phrase 7"></td>
       <td><img class="sign" src="signs/lowpalm.svg" width="120" height="90" alt="Low, palm out: swing the arm down and out to the side, palm turned forward, then back" title="Low, palm out: swing the arm down and out to the side, palm turned forward, then back"></td>
       <td><input id="colour-6" type="color" value="#64d2ff" aria-label="Colour of phrase 7"></td>
       <td><button id="record-6" disabled>Redo</button></td><td id="count-6">0 of 3</td>
@@ -98,13 +179,32 @@ for as long as you stay connected.</p>
       <td><button id="record-7" disabled>Redo</button></td><td id="count-7">0 of 3</td>
       <td><button id="speak-7">Hear it</button></td>
     </tr>
+    <tr>
+      <td><input id="name-8" value="Wait a moment" maxlength="60" aria-label="Phrase 9"></td>
+      <td><img class="sign" src="signs/shake-slow.svg" width="120" height="90" alt="Shake slow: forearm level, twist the wrist left and right about 2 times a second" title="Shake slow: forearm level, twist the wrist left and right about 2 times a second"></td>
+      <td><input id="colour-8" type="color" value="#a2845e" aria-label="Colour of phrase 9"></td>
+      <td><button id="record-8" disabled>Redo</button></td><td id="count-8">0 of 3</td>
+      <td><button id="speak-8">Hear it</button></td>
+    </tr>
+    <tr>
+      <td><input id="name-9" value="Excuse me" maxlength="60" aria-label="Phrase 10"></td>
+      <td><img class="sign" src="signs/shake-medium.svg" width="120" height="90" alt="Shake medium: forearm level, twist the wrist left and right about 4 times a second" title="Shake medium: forearm level, twist the wrist left and right about 4 times a second"></td>
+      <td><input id="colour-9" type="color" value="#30d158" aria-label="Colour of phrase 10"></td>
+      <td><button id="record-9" disabled>Redo</button></td><td id="count-9">0 of 3</td>
+      <td><button id="speak-9">Hear it</button></td>
+    </tr>
+    <tr>
+      <td><input id="name-10" value="Help me!" maxlength="60" aria-label="Phrase 11"></td>
+      <td><img class="sign" src="signs/shake-fast.svg" width="120" height="90" alt="Shake fast: forearm level, twist the wrist left and right as fast as you can, about 7 times a second" title="Shake fast: forearm level, twist the wrist left and right as fast as you can, about 7 times a second"></td>
+      <td><input id="colour-10" type="color" value="#ff9500" aria-label="Colour of phrase 11"></td>
+      <td><button id="record-10" disabled>Redo</button></td><td id="count-10">0 of 3</td>
+      <td><button id="speak-10">Hear it</button></td>
+    </tr>
   </table>
   <p class="row">
-    <label>Scene <select id="scene" aria-label="Phrase set"></select></label>
     <label>How strict (lower = stricter) <input id="limit" type="range" min="0.2" max="2" step="0.05" value="0.8"></label>
     <span id="limit-text">0.80</span>
     <button id="forget">Forget all gestures</button>
-    <label><input id="ai" type="checkbox" checked> AI sentences (gestures made in a row are joined into one sentence)</label>
   </p>
 </div>
 <div class="card" id="script-card" hidden>
@@ -117,10 +217,6 @@ for as long as you stay connected.</p>
   <p id="detail" class="soft">The last gesture the recogniser cut out of the motion is drawn here.</p>
   <canvas id="picture" width="720" height="220"></canvas>
   <p class="soft">Red, green, blue: acceleration x, y, z. Orange, purple, cyan: turning speed x, y, z.</p>
-</div>
-<div class="card">
-  <p class="row"><b>Said so far</b> <span id="voice" class="soft"></span> <button id="clear">Clear</button></p>
-  <p id="spoken">Nothing yet.</p>
 </div>
 <script type="module" src="trainer.js"></script>
 </body>
