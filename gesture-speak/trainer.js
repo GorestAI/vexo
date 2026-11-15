@@ -5,10 +5,12 @@
 // Built on the kit's gesture trainer (recogniser.js is the kit's, unchanged).
 import { $, say, attempt, onConnect } from '../shared/page.js';
 import { Segmenter, GYRO_SCALE } from './recogniser.js';
-import { features, match, distance, rate, shakeOf, liveRate } from './rhythm.js';
+import { features, match, distance, rate, ShakeDetector, MIN_TURNS } from './rhythm.js';
 import { MOTIONS } from './motions.js';
 import { SCENES } from './scenes.js';
-import { captions } from './captions.js';
+import { captions, browserCaptions } from './captions.js';
+import { airDrawing } from './draw.js';
+import { SHAPES, picture, FAR } from './shapes.js';
 import { oggPackets } from '../vexo-open-kit/js/src/audio.js';
 
 const GESTURES = document.querySelectorAll('input[id^="name-"]').length;   // rows in the table on the page
@@ -39,8 +41,9 @@ let pauseTimer = null;
 function save() {
   const phrases = Array.from({ length: GESTURES }, (_, g) => $(`#name-${g}`).value);
   const rphrases = Array.from({ length: COMMANDS }, (_, i) => $(`#rname-${i}`).value);
-  localStorage.setItem(STORE, JSON.stringify({ examples, phrases, rphrases, limit: $('#limit').value, scene: $('#scene').value,
-    mode: $('#mode').value, boundary: $('#boundary').value }));
+  const dphrases = Object.fromEntries(SHAPES.map(({ key }) => [key, $(`#dname-${key}`).value]));
+  localStorage.setItem(STORE, JSON.stringify({ examples, phrases, rphrases, dphrases, limit: $('#limit').value, scene: $('#scene').value,
+    mode: $('#mode').value, boundary: $('#boundary').value, guessMode: $('#guess-mode').value }));
 }
 function load() {
   try {
@@ -53,7 +56,9 @@ function load() {
     }
     if (Number(kept.limit) >= 0.2 && Number(kept.limit) <= 2) $('#limit').value = kept.limit;
     if (kept.scene in SCENES) $('#scene').value = kept.scene;
-    if (kept.mode === 'rhythm' || kept.mode === 'taught') $('#mode').value = kept.mode;
+    if (['rhythm', 'draw', 'taught'].includes(kept.mode)) $('#mode').value = kept.mode;
+    if (['rest', 'all', 'off'].includes(kept.guessMode)) $('#guess-mode').value = kept.guessMode;
+    for (const { key } of SHAPES) if (typeof kept.dphrases?.[key] === 'string') $(`#dname-${key}`).value = kept.dphrases[key].slice(0, 60);
     if (Number(kept.boundary) >= 2 && Number(kept.boundary) <= 6) $('#boundary').value = kept.boundary;
     for (let i = 0; i < COMMANDS; i++) if (typeof kept.rphrases?.[i] === 'string') $(`#rname-${i}`).value = kept.rphrases[i].slice(0, 60);
   } catch { /* nothing kept, or not ours: start empty */ }
@@ -107,6 +112,7 @@ function speak(text) {
 function warmVoice() {
   for (let g = 0; g < GESTURES; g++) fetchSound(nameOf(g));
   for (let i = 0; i < COMMANDS; i++) fetchSound(cmdPhrase(i));
+  for (const { key } of SHAPES) fetchSound(shapePhrase(key));
 }
 
 // ---- the page
@@ -134,6 +140,7 @@ function showTable() {
 }
 
 function waitForGesture() {
+  if (isDraw()) return show('Make a fist and draw', `Open your hand when the shape is done.${band ? ' Shakes on the band work too.' : ''}`);
   if (isRhythm()) return show('Listening for shakes', 'Shake slow or fast, once or twice. Stop for a moment after each.');
   if (recording !== -1) {
     show(`Show me "${nameOf(recording)}"`, `${examples[recording].length + 1} of ${EXAMPLES}. Hold still, make the gesture, hold still again.`, '', recording);
@@ -159,7 +166,7 @@ function learn(g) {
 function carryOn() {
   clearTimeout(nextTimer);
   const next = nextToLearn();
-  if (band && next !== -1 && !isRhythm()) return learn(next);
+  if (band && next !== -1 && modeIs('taught')) return learn(next);
   recording = -1;
   light(null);
   save();
@@ -253,7 +260,7 @@ async function endSentence() {
 function onGesture(gesture) {
   if (Date.now() < ignoreUntil) return;
   draw(gesture);
-  if (isRhythm()) return onShake(gesture);
+  if (!modeIs('taught')) return;                // shakes are found in the stream: see ShakeDetector
   const shape = features(gesture);
   const seconds = ((gesture[gesture.length - 1].t - gesture[0].t) / 1000).toFixed(1);
   if (recording !== -1) {
@@ -302,7 +309,18 @@ function onGesture(gesture) {
 let step = 0;                    // the script line being acted out now
 const scene = () => SCENES[$('#scene').value];
 
-const scriptLines = () => (isRhythm() ? scene()?.rhythm?.script : scene()?.script);
+/** What a script line asks for: its picture, and what you say (or what to do). */
+function lineView(line) {
+  if (line.ai) return { src: AI_PICTURE, alt: 'Draw anything', you: line.hint };
+  if (line.shape) return { src: shapePicture(line.shape), alt: shapeOf(line.shape).name, you: shapePhrase(line.shape) };
+  if (line.cmd !== undefined) {
+    return { src: cmdPicture(line.cmd), alt: RHYTHM_NAMES[line.cmd],
+      you: isDraw() ? `${RHYTHM_NAMES[line.cmd]} on the band: ${cmdPhrase(line.cmd)}` : cmdPhrase(line.cmd) };
+  }
+  return { src: signOf(line.row), alt: $(`#name-${line.row}`).closest('tr').querySelector('img.sign').alt, you: nameOf(line.row) };
+}
+const answers = (line, key) => (line.ai ? key === 'ai' : (line.shape ?? line.cmd ?? line.row) === key);
+const scriptLines = () => (isDraw() ? scene()?.draw?.script : isRhythm() ? scene()?.rhythm?.script : scene()?.script);
 function showScript() {
   const script = scriptLines();
   $('#script-card').hidden = !script;
@@ -313,14 +331,15 @@ function showScript() {
     item.className = i < step ? 'done' : i === step ? 'now' : '';
     const sign = document.createElement('img');
     sign.className = 'sign';
-    sign.src = isRhythm() ? cmdPicture(line.cmd) : signOf(line.row);
-    sign.alt = isRhythm() ? RHYTHM_NAMES[line.cmd] : $(`#name-${line.row}`).closest('tr').querySelector('img.sign').alt;
+    const view = lineView(line);
+    sign.src = view.src;
+    sign.alt = view.alt;
     const they = document.createElement('span');
     they.className = 'they';
     they.textContent = line.they;
     const you = document.createElement('span');
     you.className = 'you';
-    you.textContent = isRhythm() ? cmdPhrase(line.cmd) : nameOf(line.row);
+    you.textContent = view.you;
     item.append(they, sign, you);
     return item;
   }));
@@ -328,7 +347,7 @@ function showScript() {
 /** A phrase was recognised: if it answers the current script line, go on to the next. */
 function followScript(key) {
   const script = scriptLines();
-  if (!script || step >= script.length || (isRhythm() ? script[step].cmd : script[step].row) !== key) return;
+  if (!script || step >= script.length || !answers(script[step], key)) return;
   step++;
   showScript();
 }
@@ -336,6 +355,7 @@ function followScript(key) {
 function useScene() {
   scene().phrases.forEach((phrase, g) => { if (g < GESTURES) $(`#name-${g}`).value = phrase; });
   scene().rhythm?.phrases.forEach((phrase, i) => { $(`#rname-${i}`).value = phrase; });
+  for (const [key, phrase] of Object.entries(scene().draw?.phrases ?? {})) $(`#dname-${key}`).value = phrase;
   step = 0;
   save();
   warmVoice();
@@ -350,7 +370,9 @@ const RHYTHM_COLOURS = ['#0a84ff', '#ff9500', '#0a84ff', '#ff9500'];
 const GAP_MS = 900;              // after a burst: this long to start a second one
 const MOST_WAIT_MS = 4000;       // a second burst that never ends: the first is said anyway
 const METER_TOP = 9;             // shakes a second at the right end of the meter
-const isRhythm = () => $('#mode').value === 'rhythm';
+const modeIs = (mode) => $('#mode').value === mode;
+const isRhythm = () => modeIs('rhythm');
+const isDraw = () => modeIs('draw');
 const boundary = () => Number($('#boundary').value);
 const cmdPhrase = (i) => $(`#rname-${i}`).value.trim() || RHYTHM_NAMES[i];
 const cmdPicture = (i) => $(`#tile-${i} img`).getAttribute('src');
@@ -358,9 +380,13 @@ let held = null;                 // { fast, detail, since }: a burst waiting to 
 let holdTimer = null;
 let meterAt = 0;
 
-function onShake(gesture) {
-  const shake = shakeOf(gesture);
-  if (!shake) return show('Not a shake', 'Turn the wrist left and right a few times, then stop.');
+const detector = new ShakeDetector();
+let samplesThisSecond = 0;       // motion samples from the band, counted for the "is it streaming" line
+
+/** A burst of turning has ended (from ShakeDetector). */
+function onShake(shake) {
+  if (isDraw() && air.busy) return;            // the wrist moved because it was drawing, not shaking
+  if (shake.turns < MIN_TURNS) return show('Not a shake', `Only ${shake.turns} turn${shake.turns === 1 ? '' : 's'}. Turn the wrist left and right a few times, then stop.`);
   const fast = shake.perSecond >= boundary();
   const detail = `${shake.perSecond.toFixed(1)} shakes a second, ${fast ? 'fast' : 'slow'} (the line is at ${boundary()}).`;
   if (held && held.fast === fast) {          // the second burst, same speed: x2
@@ -377,13 +403,16 @@ function onShake(gesture) {
 function waitForSecond() {
   if (!held) return;
   // A second burst is under way: wait for it to end (it decides x1 or x2).
-  if (segmenter.samples.length && Date.now() - held.since < MOST_WAIT_MS) { holdTimer = setTimeout(waitForSecond, 100); return; }
+  if (detector.busy && Date.now() - held.since < MOST_WAIT_MS) { holdTimer = setTimeout(waitForSecond, 100); return; }
   const one = held;
   held = null;
   said(one.fast ? 1 : 0, one.detail);
 }
 function said(i, detail) {
   clearTimeout(holdTimer);
+  // An AI guess is waiting: a slow shake says it, a fast shake drops it.
+  if (guessed && i === 0) return sayGuess();
+  if (guessed && i === 1) return dropGuess();
   const phrase = cmdPhrase(i);
   show(phrase, `${RHYTHM_NAMES[i]}. ${detail}`, RHYTHM_COLOURS[i], cmdPicture(i));
   heard(phrase);
@@ -403,13 +432,120 @@ function showBoundary() {
   $('#boundary-text').textContent = String(boundary());
 }
 function showMode() {
-  $('#rhythm-card').hidden = !isRhythm();
-  $('#taught-card').hidden = isRhythm();
+  $('#draw-card').hidden = !isDraw();
+  $('#rhythm-card').hidden = modeIs('taught');   // shakes work while drawing too
+  $('#taught-card').hidden = !modeIs('taught');
+  if (!isDraw() && air.on) air.stop();
   held = null;
   clearTimeout(holdTimer);
   step = 0;
   showScript();
 }
+
+// ---- drawing in the air: a fist draws, an open hand finishes, the shape says a phrase
+const shapeOf = (key) => SHAPES.find((one) => one.key === key);
+const shapePhrase = (key) => $(`#dname-${key}`).value.trim() || shapeOf(key).name;
+const shapePicture = (key) => `data:image/svg+xml,${encodeURIComponent(picture(key))}`;
+const CAMERA_STATES = {
+  loading: 'Loading the hand model (about 8 MB, once)...',
+  on: 'Camera on. Make a fist to draw, open your hand to finish.',
+  off: 'Camera off.',
+  'no-model': 'The hand model could not be loaded (it needs the internet once). Draw with the mouse meanwhile.',
+  denied: 'The browser may not use the camera. Allow it with the icon in the address bar, then press Start camera again.',
+  'no-camera': 'No camera found. Draw with the mouse or a finger on the picture.',
+};
+const AI_PICTURE = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" width="72" height="72">'
+  + '<rect width="72" height="72" rx="10" fill="#fff"/><text x="36" y="46" text-anchor="middle" font-family="system-ui,sans-serif" '
+  + 'font-size="28" font-weight="700" fill="#e5446d">AI ?</text></svg>')}`;
+const GUESS_MS = 20000;          // a guess nobody confirms is dropped after this long
+let guessed = null;              // { drawing, say, picture }: the AI's guess, waiting for a yes
+let guessTimer = 0;
+
+/** A drawing is finished: a simple shape says its phrase; anything else goes to the AI (see the select). */
+function drew(result, picture) {
+  // While a guess waits: a check says it, a line drops it.
+  if (guessed && result.sure && result.key === 'check') return sayGuess();
+  if (guessed && result.sure && result.key === 'line') return dropGuess();
+  if (guessed) dropGuess(true);
+  const asking = $('#guess-mode').value;
+  if (asking === 'all' || (asking === 'rest' && !result.sure)) return askAI(picture());
+  const shape = shapeOf(result.key);
+  if (!result.sure) {
+    return show('Not sure', `Closest: ${shape.name}, then ${shapeOf(result.nextKey).name}. Draw it again, a little bigger and slower.`,
+      '', shapePicture(result.key));
+  }
+  const phrase = shapePhrase(result.key);
+  show(phrase, `${shape.name} (distance ${result.distance.toFixed(2)}, sure below ${FAR}).`, '#e5446d', shapePicture(result.key));
+  heard(phrase);
+  followScript(result.key);
+  light('#e5446d');
+  const tile = $(`#shape-${result.key}`);
+  tile.classList.add('hit');
+  setTimeout(() => tile.classList.remove('hit'), 1500);
+}
+
+/** Ask the AI what the drawing means (OpenAI through /guess). Nothing is said until you confirm. */
+async function askAI(picture) {
+  show('Guessing...', 'The AI is looking at your drawing.', '', picture);
+  light('#ffd60a', { pattern: 'breathe', period: 800 });
+  let answer;
+  try {
+    const reply = await fetch('/guess', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: picture, scene: scene()?.title ?? 'an everyday conversation' }) });
+    if (reply.status === 503) {
+      light(null);
+      return show('AI guessing is off', 'It needs OPENAI_API_KEY in the .env file next to server.py (restart the server after). Simple shapes work meanwhile.', '', picture);
+    }
+    if (!reply.ok) throw new Error();
+    answer = await reply.json();
+  } catch {
+    light(null);
+    return show('Could not guess', 'The AI did not answer. Draw again, or use a simple shape.', '', picture);
+  }
+  if (!answer.say) {
+    light(null);
+    const what = answer.drawing && answer.drawing !== 'unclear' ? ` It looks like ${answer.drawing}.` : '';
+    return show('Not sure', `The AI could not tell what you want to say.${what} Draw it again.`, '', picture);
+  }
+  guessed = { ...answer, picture };
+  $('#guess-text').textContent = `You drew ${answer.drawing}: "${answer.say}"`;
+  $('#guess').hidden = false;
+  show(`"${answer.say}"?`, `The AI thinks you drew ${answer.drawing}. Say it: draw a check, shake the band slowly, or press Say it. `
+    + 'Drop it: draw a line, shake fast, or press No.', '#b8860b', picture);
+  light('#ffd60a', { pattern: 'blink', period: 600 });   // yellow, blinking: "yes or no?"
+  clearTimeout(guessTimer);
+  guessTimer = setTimeout(() => dropGuess(), GUESS_MS);
+}
+function sayGuess() {
+  const guess = guessed;
+  dropGuess(true);
+  show(guess.say, `The AI's guess: ${guess.drawing}.`, '#e5446d', guess.picture);
+  heard(guess.say);
+  followScript('ai');
+  light('#e5446d');
+}
+function dropGuess(quietly = false) {
+  if (!guessed) return;
+  guessed = null;
+  clearTimeout(guessTimer);
+  $('#guess').hidden = true;
+  if (quietly) return;
+  show('Dropped', 'Nothing was said. Draw again.');
+  light(null);
+}
+const air = airDrawing({
+  video: $('#video'),
+  ink: $('#ink'),
+  onShape: drew,
+  onState(state) {
+    $('#camera-state').textContent = CAMERA_STATES[state];
+    $('#camera').textContent = state === 'on' || state === 'loading' ? 'Stop camera' : 'Start camera';
+  },
+  onPen(down) {
+    $('#pen-state').textContent = down ? 'Drawing...' : '';
+    if (down) light('#e5446d', { pattern: 'breathe', period: 900 });   // pink, breathing: "I am drawing"
+  },
+});
 
 // ---- live captions: the other person's words, from the band's microphone
 let micOn = false;               // the band's microphone is on: its light is solid blue and cannot be changed
@@ -419,43 +555,100 @@ function light(colour, options) {
   if (!band || micOn) return;
   attempt(colour === null ? band.ledOff() : band.setLed(colour, options));
 }
-const STATES = {
+// Two ways to hear the other person. With a Deepgram key: the band's microphone, through
+// Deepgram. Without one (or with no band connected): this computer's microphone, through the
+// browser's own speech recognition, so captions always work at once.
+const BAND_STATES = {
   connecting: 'Connecting to Deepgram...',
-  on: "Captions on. Everything the band's microphone hears is sent to Deepgram until you switch them off.",
+  on: "Captions on, from the band's microphone. Everything it hears is sent to Deepgram until you switch them off.",
   off: 'Captions off.',
-  'no-key': 'Captions need DEEPGRAM_API_KEY in the .env file next to server.py.',
-  failed: 'Deepgram did not answer. Check the key and the internet, then switch captions on again.',
+  failed: 'Deepgram stopped answering. Switch captions on again.',
 };
+const COMPUTER_STATES = {
+  on: "Captions on, from this computer's microphone (Chrome's own speech recognition; the sound goes to Google). "
+    + "For the band's microphone, put DEEPGRAM_API_KEY in .env.",
+  off: 'Captions off.',
+  unsupported: 'This browser has no speech recognition of its own. Open the page in Chrome, or put DEEPGRAM_API_KEY in .env.',
+  denied: 'The browser may not use the microphone. Allow it with the icon in the address bar, then switch captions on again.',
+  failed: "Chrome's speech recognition did not answer (it needs the internet). Switch captions on again.",
+};
+function caption(text, final) {
+  if (final) { live = ''; talk.push({ who: 'them', text }); } else live = text;
+  showSpoken();
+}
+async function captionState(text, on, ended) {
+  $('#captions-state').textContent = text;
+  $('#captions-state').classList.toggle('warn', on);
+  if (!ended) return;
+  $('#captions').checked = false;
+  live = '';
+  showSpoken();
+  await mic(false);
+}
 const listener = captions({
-  text(text, final) {
-    if (final) { live = ''; talk.push({ who: 'them', text }); } else live = text;
-    showSpoken();
-  },
+  text: caption,
   async state(state) {
-    $('#captions-state').textContent = STATES[state];
-    $('#captions-state').classList.toggle('warn', state === 'on');
-    if (state !== 'on' && state !== 'connecting') {
-      $('#captions').checked = false;
-      live = '';
-      showSpoken();
-      await mic(false);
-    }
+    // No key, or no server to ask for one: this computer's microphone instead.
+    if (state === 'no-key' || state === 'no-token') { await mic(false); return computer.start(); }
+    await captionState(BAND_STATES[state], state === 'on', state !== 'on' && state !== 'connecting');
   },
 });
+const computer = browserCaptions({
+  text: caption,
+  state: (state) => captionState(COMPUTER_STATES[state], state === 'on', state !== 'on'),
+}, () => talking > 0);
 async function mic(on) {
   if (!band || micOn === on) return;
   micOn = on;
   try { await band.configure({ audio: on }); } catch (e) { say(e.message); }
 }
 async function switchCaptions() {
-  if (!$('#captions').checked) return listener.stop();
-  if (!band) return ($('#captions-state').textContent = 'Connect the band first: captions use its microphone.', $('#captions').checked = false);
+  if (!$('#captions').checked) { listener.stop(); computer.stop(); return; }
+  if (!band) return computer.start();            // no band: this computer's microphone
   await mic(true);
   listener.start();
 }
 
 // ---- the parts of the page that work without a band
 for (const [key, { title }] of Object.entries(SCENES)) $('#scene').add(new Option(title, key));
+// The shape tiles: a picture, the phrase it says, and Hear it.
+for (const shape of SHAPES) {
+  const tile = document.createElement('div');
+  tile.className = 'shape';
+  tile.id = `shape-${shape.key}`;
+  tile.innerHTML = picture(shape.key, 64);
+  const words = document.createElement('div');
+  const title = document.createElement('b');
+  title.textContent = shape.name;
+  const how = document.createElement('span');
+  how.className = 'soft';
+  how.textContent = ` ${shape.how}`;
+  const row = document.createElement('p');
+  row.className = 'row';
+  const input = Object.assign(document.createElement('input'), { id: `dname-${shape.key}`, maxLength: 60 });
+  input.setAttribute('aria-label', `Phrase for ${shape.name}`);
+  input.value = SCENES.basic.draw.phrases[shape.key];
+  input.onchange = () => { save(); fetchSound(shapePhrase(shape.key)); showScript(); };
+  const hear = Object.assign(document.createElement('button'), { textContent: 'Hear it' });
+  hear.onclick = () => speak(shapePhrase(shape.key));
+  row.append(input, hear);
+  words.append(title, how, row);
+  tile.append(words);
+  $('#shape-tiles').append(tile);
+}
+$('#camera').onclick = () => (air.on ? air.stop() : air.start());
+$('#guess-yes').onclick = () => guessed && sayGuess();
+$('#guess-no').onclick = () => dropGuess();
+$('#guess-mode').onchange = () => { dropGuess(true); save(); };
+
+// Once a second: is motion arriving from the band at all?
+setInterval(() => {
+  $('#motion-rate').textContent = !band ? 'Band not connected.'
+    : samplesThisSecond ? `The band is sending ${samplesThisSecond} motion samples a second.`
+      : 'No motion is arriving from the band. Disconnect and connect again.';
+  $('#motion-rate').classList.toggle('warn', Boolean(band) && !samplesThisSecond);
+  samplesThisSecond = 0;
+}, 1000);
 load();
 showBoundary();
 showMode();
@@ -491,17 +684,24 @@ onConnect(async (theBand, pretend) => {
     // The hand is moving: the sentence is not over, whatever this movement turns out to be.
     if (pending.length && segmenter.samples.length) { clearTimeout(pauseTimer); pauseTimer = setTimeout(endSentence, PAUSE_MS); }
     if (gesture) onGesture(gesture);
-    if (isRhythm() && Date.now() - meterAt > 100) { meterAt = Date.now(); showMeter(liveRate(segmenter.samples)); }
+    samplesThisSecond++;
+    if (isDraw()) air.motion(Math.hypot(sample.gx, sample.gy, sample.gz) > 40);   // the band helps the camera
+    if (!modeIs('taught')) {
+      const burst = detector.feed(sample);
+      if (burst) onShake(burst);
+      if (Date.now() - meterAt > 100) { meterAt = Date.now(); showMeter(detector.live()); }
+    }
   });
   band.on('audio', (packet) => { if (!talking) listener.send(packet.opus); });
 
   const stop = (text) => { segmenter.reset(); clearTimeout(nextTimer); recording = -1; showTable(); show(text); };
-  band.on('reconnecting', () => stop('Link lost...'));
+  band.on('reconnecting', () => { detector.reset(); stop('Link lost...'); });
   band.on('reconnected', () => carryOn());
   band.on('disconnect', () => {
-    if ($('#captions').checked) listener.stop();
+    if ($('#captions').checked && !computer.on) listener.stop();   // the computer's microphone goes on without the band
     micOn = false;
     held = null;
+    detector.reset();
     clearTimeout(holdTimer);
     showMeter(0);
     $('#pretend-voice').disabled = true;

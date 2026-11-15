@@ -84,6 +84,31 @@ def sentence(phrases):
     return text
 
 
+GUESS_RULES = (
+    "A deaf person is talking face to face with someone who can hear. Instead of speaking, they drew a quick "
+    "sketch in the air with their fist, so the lines are rough, wobbly and in one colour. Situation: {scene}. "
+    "Guess what the sketch shows and what they most likely want to say to the person in front of them. "
+    "Answer with JSON only: {{\"drawing\": \"what it shows, 2 to 5 words\", \"say\": \"one short, natural "
+    "sentence they would say, first person, at most 12 words\"}}. If you really cannot tell, answer "
+    "{{\"drawing\": \"unclear\", \"say\": \"\"}}."
+)
+MAX_IMAGE = 400_000   # characters of the drawing as a data address (a 320 x 240 PNG of a few lines is about 10 000)
+
+
+def guess(image, scene):
+    """A drawing (PNG as a data address) -> {"drawing": ..., "say": ...}, OpenAI looking at the picture."""
+    body = {"model": SENTENCE_MODEL, "temperature": 0.3, "max_tokens": 80, "response_format": {"type": "json_object"},
+            "messages": [{"role": "system", "content": GUESS_RULES.format(scene=scene)},
+                         {"role": "user", "content": [
+                             {"type": "text", "text": "What does this drawing want to say?"},
+                             {"type": "image_url", "image_url": {"url": image, "detail": "low"}}]}]}
+    request = urllib.request.Request("https://api.openai.com/v1/chat/completions", data=json.dumps(body).encode(),
+                                     headers={"Authorization": "Bearer " + env("OPENAI_API_KEY"), "Content-Type": "application/json"})
+    with urllib.request.urlopen(request, timeout=20, context=TRUST) as answer:
+        said = json.loads(json.loads(answer.read())["choices"][0]["message"]["content"])
+    return {"drawing": str(said.get("drawing", ""))[:60], "say": str(said.get("say", "")).strip().strip('"')[:120]}
+
+
 class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=ROOT, **kwargs)
@@ -107,7 +132,7 @@ class Handler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def do_POST(self):
-        if self.path not in ("/speak", "/sentence", "/listen-token"):
+        if self.path not in ("/speak", "/sentence", "/listen-token", "/guess"):
             return self.send_error(404)
         # Only this computer's own pages may ask: a web site open in another tab may not.
         origin = self.headers.get("Origin", "")
@@ -115,6 +140,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self.send_error(403)
         if self.path == "/listen-token":
             return self.do_listen_token()
+        if self.path == "/guess":
+            return self.do_guess()
         try:
             length = int(self.headers.get("Content-Length", "0"))
             asked = json.loads(self.rfile.read(min(length, 4096)))
@@ -137,6 +164,31 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", str(len(sound)))
         self.end_headers()
         self.wfile.write(sound)
+
+    def do_guess(self):
+        """{"image": "data:image/png;base64,...", "scene": "Ordering a coffee"} -> {"drawing": ..., "say": ...}"""
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if length > MAX_IMAGE + 1000:
+                return self.send_error(413)
+            asked = json.loads(self.rfile.read(length))
+            image, scene = str(asked["image"]), str(asked.get("scene", "an everyday conversation"))[:80]
+        except (ValueError, KeyError, TypeError):
+            return self.send_error(400)
+        if not image.startswith("data:image/png;base64,") or len(image) > MAX_IMAGE:
+            return self.send_error(400)
+        if not env("OPENAI_API_KEY"):
+            return self.send_error(503, "No OPENAI_API_KEY in .env")
+        try:
+            answer = json.dumps(guess(image, scene)).encode()
+        except Exception as e:                      # the page says it could not guess
+            print("guess failed:", e, file=sys.stderr)
+            return self.send_error(502, "OpenAI did not answer")
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(answer)))
+        self.end_headers()
+        self.wfile.write(answer)
 
     def do_listen_token(self):
         """Live captions: a Deepgram key that works for 30 seconds, long enough to open the

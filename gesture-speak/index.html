@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; media-src 'self' blob:; connect-src 'self' wss://api.deepgram.com/v1/listen">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' wss://api.deepgram.com/v1/listen https://cdn.jsdelivr.net https://storage.googleapis.com; img-src 'self' data:; media-src 'self' blob:">
 <title>Gesture to speech - band 35</title>
 <link rel="icon" href="../shared/icon.png">
 <link rel="stylesheet" href="../shared/style.css">
@@ -57,13 +57,32 @@ shake, once or twice, is all it needs. (Prefer your own gestures? Choose "Gestur
 <div class="card row">
   <label>Recognise <select id="mode" aria-label="How gestures are recognised">
     <option value="rhythm">Shake rhythm (nothing to teach)</option>
+    <option value="draw">Draw in the air (camera) + shakes</option>
     <option value="taught">Gestures you teach</option>
   </select></label>
   <label>Scene <select id="scene" aria-label="Phrase set"></select></label>
   <label><input id="ai" type="checkbox"> AI sentences (phrases made in a row are joined into one sentence)</label>
 </div>
+<div class="card" id="draw-card" hidden>
+  <p class="row"><b>Draw in the air</b> <button id="camera">Start camera</button>
+    <span id="camera-state" class="soft">Camera off.</span></p>
+  <p class="soft">Make a <b>fist</b> to start drawing, move it to draw, <b>open your hand</b> when it is done (with the band on,
+    holding the fist still works too). A simple shape says its phrase at once; anything else, the AI guesses, and you
+    confirm before it is said. No camera? Draw on the picture with the mouse or a finger. The camera picture stays on this computer.</p>
+  <p class="row"><label>What a drawing means <select id="guess-mode">
+    <option value="rest">Simple shapes; the AI guesses anything else</option>
+    <option value="all">The AI guesses every drawing</option>
+    <option value="off">Simple shapes only</option>
+  </select></label></p>
+  <div id="stage"><video id="video" playsinline muted></video><canvas id="ink" width="640" height="480"></canvas>
+    <span id="pen-state"></span></div>
+  <div id="guess" class="row" hidden><b id="guess-text"></b> <button id="guess-yes">Say it</button> <button id="guess-no">No</button>
+    <span class="soft">or: draw a check / shake slowly to say it, draw a line / shake fast to drop it</span></div>
+  <div class="shapes" id="shape-tiles"></div>
+</div>
 <div class="card" id="rhythm-card">
   <p class="row"><b>How fast you are shaking</b> <span id="meter-text" class="soft">not shaking</span></p>
+  <p id="motion-rate" class="soft">Band not connected.</p>
   <div id="meter" aria-hidden="true"><div id="meter-slow">slow</div><div id="meter-fast">fast</div><div id="needle"></div></div>
   <p class="row soft"><label>Slow below, fast from <input id="boundary" type="range" min="2" max="6" step="0.25" value="3.5"></label>
     <span id="boundary-text">3.5</span> shakes a second</p>

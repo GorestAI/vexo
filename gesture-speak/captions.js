@@ -77,7 +77,7 @@ export function captions(on) {
         token = (await answer.json()).token;
       } catch {
         wanted = false;
-        return on.state('failed');
+        return on.state('no-token');                  // no server (a static copy of the page), or Deepgram said no
       }
       if (!wanted) return on.state('off');            // switched off while the token was on its way
       try {
@@ -115,6 +115,66 @@ export function captions(on) {
         try { socket.send(JSON.stringify({ type: 'CloseStream' })); } catch { /* closing anyway */ }
       }
       close('off');
+    },
+  };
+}
+
+/**
+ * Captions with no key at all: the browser's own speech recognition (Chrome, Edge), on this
+ * computer's microphone, not the band's. Chrome sends that sound to Google to turn it into text.
+ * Used when there is no Deepgram key, so captions still work at once.
+ *
+ * @param {object} on   the same as captions(), with states 'on' | 'off' | 'unsupported' | 'denied' | 'failed'
+ * @param {() => boolean} muted  true while this page is speaking: what is heard then is our own voice
+ */
+export function browserCaptions(on, muted = () => false) {
+  let Recognition = null;
+  let ears = null;
+  let wanted = false;
+
+  function begin() {
+    ears = new Recognition();
+    ears.lang = 'en-US';
+    ears.continuous = true;
+    ears.interimResults = true;
+    ears.onstart = () => on.state('on');
+    ears.onresult = (event) => {
+      if (muted()) return;
+      let guess = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const text = event.results[i][0].transcript.trim();
+        if (!text) continue;
+        if (event.results[i].isFinal) on.text(text.charAt(0).toUpperCase() + text.slice(1), true);
+        else guess += `${text} `;
+      }
+      if (guess.trim()) on.text(guess.trim(), false);
+    };
+    ears.onerror = (event) => {
+      if (event.error === 'no-speech' || event.error === 'aborted') return;      // a quiet room: it simply starts again
+      wanted = false;
+      on.state(event.error === 'not-allowed' || event.error === 'service-not-allowed' ? 'denied' : 'failed');
+    };
+    // Chrome stops listening by itself after a while: start again for as long as captions are on.
+    ears.onend = () => { if (wanted) { try { ears.start(); } catch { /* starting already */ } } };
+    ears.start();
+  }
+
+  return {
+    get on() { return wanted; },
+    start() {
+      if (wanted) return;
+      Recognition = globalThis.SpeechRecognition || globalThis.webkitSpeechRecognition;
+      if (!Recognition) return on.state('unsupported');
+      wanted = true;
+      try { begin(); } catch { wanted = false; on.state('failed'); }
+    },
+    send() { /* the band's sound is not used here */ },
+    stop() {
+      if (!wanted && !ears) return;
+      wanted = false;
+      try { ears?.stop(); } catch { /* stopped already */ }
+      ears = null;
+      on.state('off');
     },
   };
 }

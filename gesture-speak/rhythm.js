@@ -68,6 +68,77 @@ export function liveRate(samples) {
   return perSecond(turnTimes(samples.filter((one) => one.t >= end - 1000)));
 }
 
+// ---- finding shakes in the live stream
+// A real arm does not hold still before and after a shake: it is lifted, shaken, lowered,
+// all in one go, often for longer than the recogniser's 3 seconds. So shakes are found
+// straight in the stream instead: the slow part of the turning (lifting, lowering, walking)
+// is taken out, and what is left is counted turn by turn. A burst ends when the wrist has
+// not turned for BURST_GAP_MS, however long it took.
+const TURN_SPEED = 80;           // degrees/second past the slow part before a turn counts (at rest: about 2)
+const SMOOTH_MS = 150;           // what changes slower than this is "the slow part"
+const BURST_GAP_MS = 450;        // no turn for this long: the burst is over
+const LINK_GAP_MS = 500;         // no sample for this long (link trouble): start again
+
+export class ShakeDetector {
+  constructor() { this.reset(); }
+
+  reset() {
+    this.slow = null;            // the slow part of gx gy gz
+    this.side = [0, 0, 0];       // which side of the slow part each axis is on
+    this.turns = [[], [], []];   // turn times of this burst, per axis
+    this.lastTurn = null;        // band time of the newest turn, null = no burst going on
+    this.lastT = null;
+  }
+
+  /** A burst is going on: the wrist turned in the last BURST_GAP_MS. */
+  get busy() { return this.lastTurn !== null; }
+
+  /**
+   * Feed one motion sample. Returns { perSecond, turns } when a burst has just ended,
+   * otherwise null. `turns` below MIN_TURNS means it was no shake (a flick, a reach).
+   */
+  feed(sample) {
+    const t = sample.t;
+    if (!Number.isFinite(t)) return null;
+    if (this.lastT !== null && (t < this.lastT || t - this.lastT > LINK_GAP_MS)) this.reset();
+    const step = this.lastT === null ? 20 : t - this.lastT;
+    this.lastT = t;
+    const turning = [sample.gx, sample.gy, sample.gz];
+    if (!this.slow) this.slow = [...turning];
+    const k = Math.min(1, step / SMOOTH_MS);
+    turning.forEach((value, i) => {
+      this.slow[i] += k * (value - this.slow[i]);
+      const quick = value - this.slow[i];
+      const now = quick > TURN_SPEED ? 1 : quick < -TURN_SPEED ? -1 : 0;
+      if (now && this.side[i] && now !== this.side[i]) {
+        this.turns[i].push(t);
+        this.lastTurn = t;
+      }
+      if (now) this.side[i] = now;
+    });
+    if (this.lastTurn !== null && t - this.lastTurn > BURST_GAP_MS) return this.end();
+    return null;
+  }
+
+  /** How fast the burst going on now shakes (its last second), 0 when there is none. */
+  live() {
+    if (!this.busy) return 0;
+    const best = this.best();
+    return perSecond(best.filter((one) => one >= best[best.length - 1] - 1000));
+  }
+
+  best() { return this.turns.reduce((most, one) => (one.length > most.length ? one : most)); }
+
+  end() {
+    const best = this.best();
+    const burst = { perSecond: perSecond(best), turns: best.length };
+    this.turns = [[], [], []];
+    this.side = [0, 0, 0];
+    this.lastTurn = null;
+    return burst;
+  }
+}
+
 /** The shape of a gesture, with its shake rate as one more point at the end. */
 export function features(gesture) {
   return [...toShape(gesture), rate(gesture), 0, 0, 0, 0, 0];
