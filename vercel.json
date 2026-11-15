@@ -1,0 +1,7 @@
+{
+  "framework": null,
+  "installCommand": "",
+  "buildCommand": "node build-vercel.mjs",
+  "outputDirectory": "dist",
+  "redirects": [{ "source": "/", "destination": "/gesture-speak/", "permanent": false }]
+}
