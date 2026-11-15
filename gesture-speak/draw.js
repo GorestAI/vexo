@@ -52,7 +52,9 @@ export function airDrawing({ video, ink, onShape, onState, onPen = () => {} }) {
   const pen2d = ink.getContext('2d');
   function paint() {
     const { width, height } = ink;
-    pen2d.clearRect(0, 0, width, height);
+    // A white board over the whole picture: the camera picture underneath is never seen.
+    pen2d.fillStyle = '#fff';
+    pen2d.fillRect(0, 0, width, height);
     pen2d.lineWidth = 8;
     pen2d.lineCap = pen2d.lineJoin = 'round';
     pen2d.strokeStyle = '#e5446d';
@@ -64,7 +66,7 @@ export function airDrawing({ video, ink, onShape, onState, onPen = () => {} }) {
     if (hand) {
       pen2d.beginPath();
       pen2d.arc(hand.x * width, hand.y * height, hand.fist ? 14 : 10, 0, 2 * Math.PI);
-      pen2d.fillStyle = hand.fist ? '#e5446d' : 'rgba(255,255,255,0.8)';
+      pen2d.fillStyle = hand.fist ? '#e5446d' : '#c8cdd6';
       pen2d.fill();
       pen2d.lineWidth = 3;
       pen2d.strokeStyle = '#1c2330';
