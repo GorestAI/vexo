@@ -6,13 +6,14 @@
 import { $, say, attempt, onConnect } from '../shared/page.js';
 import { Segmenter, toShape, match, distance, GYRO_SCALE } from './recogniser.js';
 import { MOTIONS } from './motions.js';
+import { SCENES } from './scenes.js';
 
-const GESTURES = 4;              // rows in the table on the page
+const GESTURES = document.querySelectorAll('input[id^="name-"]').length;   // rows in the table on the page
 const EXAMPLES = 3;              // how many times you show each gesture
 const SETTLE_MS = 1500;          // after a phrase is learned: time to bring the arm back, nothing counts
 const PAUSE_MS = 1500;           // AI sentences: the hand still for this long ends the sentence
 const RETRIES = 2;               // how often an odd example is thrown out before the row is taken as it is
-const STORE = 'gesture-speak-v3';   // examples and phrases are kept in this browser, so a reload keeps them
+const STORE = 'gesture-speak-v4';   // examples and phrases are kept in this browser, so a reload keeps them (v4: elevation poses)
 const LINES = { ax: '#ff5c5c', ay: '#5cd65c', az: '#5c9dff', gx: '#ffa13d', gy: '#c77dff', gz: '#3dd6d6' };
 
 const segmenter = new Segmenter();
@@ -31,7 +32,7 @@ let pauseTimer = null;
 // ---- keeping the examples across a reload
 function save() {
   const phrases = Array.from({ length: GESTURES }, (_, g) => $(`#name-${g}`).value);
-  localStorage.setItem(STORE, JSON.stringify({ examples, phrases, limit: $('#limit').value }));
+  localStorage.setItem(STORE, JSON.stringify({ examples, phrases, limit: $('#limit').value, scene: $('#scene').value }));
 }
 function load() {
   try {
@@ -43,6 +44,7 @@ function load() {
       if (typeof kept.phrases?.[g] === 'string') $(`#name-${g}`).value = kept.phrases[g].slice(0, 60);
     }
     if (Number(kept.limit) >= 0.2 && Number(kept.limit) <= 2) $('#limit').value = kept.limit;
+    if (kept.scene in SCENES) $('#scene').value = kept.scene;
   } catch { /* nothing kept, or not ours: start empty */ }
 }
 
@@ -255,18 +257,65 @@ function onGesture(gesture) {
     const phrase = nameOf(found.label);
     show(phrase, detail, colour, found.label);
     heard(phrase);
+    followScript(found.label);
     attempt(band.setLed(colour));
   }
 }
 
+// ---- scenes: ready-made phrase sets, some with a script to act out in a demo
+let step = 0;                    // the script line being acted out now
+const scene = () => SCENES[$('#scene').value];
+
+function showScript() {
+  const script = scene()?.script;
+  $('#script-card').hidden = !script;
+  if (!script) return;
+  $('#script-title').textContent = `Demo script: ${scene().title}`;
+  $('#script').replaceChildren(...script.map((line, i) => {
+    const item = document.createElement('li');
+    item.className = i < step ? 'done' : i === step ? 'now' : '';
+    const sign = document.createElement('img');
+    sign.className = 'sign';
+    sign.src = signOf(line.row);
+    sign.alt = $(`#name-${line.row}`).closest('tr').querySelector('img.sign').alt;
+    const they = document.createElement('span');
+    they.className = 'they';
+    they.textContent = line.they;
+    const you = document.createElement('span');
+    you.className = 'you';
+    you.textContent = nameOf(line.row);
+    item.append(they, sign, you);
+    return item;
+  }));
+}
+/** A phrase was recognised: if it answers the current script line, go on to the next. */
+function followScript(row) {
+  const script = scene()?.script;
+  if (!script || step >= script.length || script[step].row !== row) return;
+  step++;
+  showScript();
+}
+/** Fill the phrase boxes from the scene. The learned gestures stay: only the words change. */
+function useScene() {
+  scene().phrases.forEach((phrase, g) => { if (g < GESTURES) $(`#name-${g}`).value = phrase; });
+  step = 0;
+  save();
+  warmVoice();
+  showScript();
+}
+
 // ---- the parts of the page that work without a band
+for (const [key, { title }] of Object.entries(SCENES)) $('#scene').add(new Option(title, key));
 load();
+showScript();
 showTable();
 for (let g = 0; g < GESTURES; g++) {
   $(`#speak-${g}`).onclick = () => speak(nameOf(g));
-  $(`#name-${g}`).onchange = () => { save(); fetchSound(nameOf(g)); };
+  $(`#name-${g}`).onchange = () => { save(); fetchSound(nameOf(g)); showScript(); };
 }
 $('#limit').oninput = () => { showTable(); save(); };
+$('#scene').onchange = useScene;
+$('#script-restart').onclick = () => { step = 0; showScript(); };
 $('#clear').onclick = () => { spoken.length = 0; pending = []; clearTimeout(pauseTimer); showSpoken(); };
 $('#ai').onchange = () => { if (!$('#ai').checked) endSentence(); };
 $('#forget').onclick = () => {

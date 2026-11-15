@@ -29,10 +29,14 @@ for as long as you stay connected.</p>
 <p id="message" role="status">Double-tap your band and press Connect.</p>
 <div class="card row pretend-only" hidden>
   <span><span id="light"></span> The pretend band's light is <span id="light-text">off</span>.</span>
-  <button id="pretend-circle" disabled>Circle</button>
-  <button id="pretend-shake" disabled>Shake</button>
-  <button id="pretend-flick" disabled>Flick</button>
-  <button id="pretend-punch" disabled>Punch</button>
+  <button id="pretend-up" disabled>Up high</button>
+  <button id="pretend-mouth" disabled>To mouth</button>
+  <button id="pretend-heart" disabled>On heart</button>
+  <button id="pretend-palmup" disabled>Palm up</button>
+  <button id="pretend-thumbup" disabled>Thumb up</button>
+  <button id="pretend-down" disabled>Arm down</button>
+  <button id="pretend-lowpalm" disabled>Low palm out</button>
+  <button id="pretend-hip" disabled>To hip</button>
   <button id="pretend-drop" disabled>Lose the link</button>
 </div>
 <div class="card">
@@ -40,39 +44,73 @@ for as long as you stay connected.</p>
     <tr><th>Phrase to say</th><th>Gesture</th><th>Colour</th><th></th><th>Examples</th><th></th></tr>
     <tr>
       <td><input id="name-0" value="Hello" maxlength="60" aria-label="Phrase 1"></td>
-      <td><img class="sign" src="signs/hello.svg" width="120" height="90" alt="Wave: hand up, swing left-right twice" title="Wave: hand up, swing left-right twice"></td>
+      <td><img class="sign" src="signs/up.svg" width="120" height="90" alt="Hand up high: raise the hand straight up above your head, then back" title="Hand up high: raise the hand straight up above your head, then back"></td>
       <td><input id="colour-0" type="color" value="#34c759" aria-label="Colour of phrase 1"></td>
       <td><button id="record-0" disabled>Redo</button></td><td id="count-0">0 of 3</td>
       <td><button id="speak-0">Hear it</button></td>
     </tr>
     <tr>
       <td><input id="name-1" value="How are you?" maxlength="60" aria-label="Phrase 2"></td>
-      <td><img class="sign" src="signs/how.svg" width="120" height="90" alt="Roll: one forward circle with the forearm" title="Roll: one forward circle with the forearm"></td>
+      <td><img class="sign" src="signs/mouth.svg" width="120" height="90" alt="Hand to mouth: bring the hand up to your mouth, thumb toward you, then back" title="Hand to mouth: bring the hand up to your mouth, thumb toward you, then back"></td>
       <td><input id="colour-1" type="color" value="#0a84ff" aria-label="Colour of phrase 2"></td>
       <td><button id="record-1" disabled>Redo</button></td><td id="count-1">0 of 3</td>
       <td><button id="speak-1">Hear it</button></td>
     </tr>
     <tr>
       <td><input id="name-2" value="Thank you" maxlength="60" aria-label="Phrase 3"></td>
-      <td><img class="sign" src="signs/thanks.svg" width="120" height="90" alt="Chin out: hand from chin, forward and down" title="Chin out: hand from chin, forward and down"></td>
+      <td><img class="sign" src="signs/heart.svg" width="120" height="90" alt="Hand on heart: forearm across your chest, palm in, then back" title="Hand on heart: forearm across your chest, palm in, then back"></td>
       <td><input id="colour-2" type="color" value="#ff9f0a" aria-label="Colour of phrase 3"></td>
       <td><button id="record-2" disabled>Redo</button></td><td id="count-2">0 of 3</td>
       <td><button id="speak-2">Hear it</button></td>
     </tr>
     <tr>
       <td><input id="name-3" value="Nice to meet you" maxlength="60" aria-label="Phrase 4"></td>
-      <td><img class="sign" src="signs/meet.svg" width="120" height="90" alt="Push: one straight punch forward and back" title="Push: one straight punch forward and back"></td>
+      <td><img class="sign" src="signs/palmup.svg" width="120" height="90" alt="Palm up: turn the palm up as if offering something, then back" title="Palm up: turn the palm up as if offering something, then back"></td>
       <td><input id="colour-3" type="color" value="#bf5af2" aria-label="Colour of phrase 4"></td>
       <td><button id="record-3" disabled>Redo</button></td><td id="count-3">0 of 3</td>
       <td><button id="speak-3">Hear it</button></td>
     </tr>
+    <tr>
+      <td><input id="name-4" value="Yes" maxlength="60" aria-label="Phrase 5"></td>
+      <td><img class="sign" src="signs/thumbup.svg" width="120" height="90" alt="Thumb up: turn the hand so the thumb points up, then back" title="Thumb up: turn the hand so the thumb points up, then back"></td>
+      <td><input id="colour-4" type="color" value="#ffd60a" aria-label="Colour of phrase 5"></td>
+      <td><button id="record-4" disabled>Redo</button></td><td id="count-4">0 of 3</td>
+      <td><button id="speak-4">Hear it</button></td>
+    </tr>
+    <tr>
+      <td><input id="name-5" value="No" maxlength="60" aria-label="Phrase 6"></td>
+      <td><img class="sign" src="signs/down.svg" width="120" height="90" alt="Arm down: let the arm drop straight down by your side, then back" title="Arm down: let the arm drop straight down by your side, then back"></td>
+      <td><input id="colour-5" type="color" value="#ff453a" aria-label="Colour of phrase 6"></td>
+      <td><button id="record-5" disabled>Redo</button></td><td id="count-5">0 of 3</td>
+      <td><button id="speak-5">Hear it</button></td>
+    </tr>
+    <tr>
+      <td><input id="name-6" value="Help me" maxlength="60" aria-label="Phrase 7"></td>
+      <td><img class="sign" src="signs/lowpalm.svg" width="120" height="90" alt="Low, palm out: swing the arm down and out to the side, palm turned forward, then back" title="Low, palm out: swing the arm down and out to the side, palm turned forward, then back"></td>
+      <td><input id="colour-6" type="color" value="#64d2ff" aria-label="Colour of phrase 7"></td>
+      <td><button id="record-6" disabled>Redo</button></td><td id="count-6">0 of 3</td>
+      <td><button id="speak-6">Hear it</button></td>
+    </tr>
+    <tr>
+      <td><input id="name-7" value="Goodbye" maxlength="60" aria-label="Phrase 8"></td>
+      <td><img class="sign" src="signs/hip.svg" width="120" height="90" alt="Hand to hip: hand down to your hip, palm in, then back" title="Hand to hip: hand down to your hip, palm in, then back"></td>
+      <td><input id="colour-7" type="color" value="#ff375f" aria-label="Colour of phrase 8"></td>
+      <td><button id="record-7" disabled>Redo</button></td><td id="count-7">0 of 3</td>
+      <td><button id="speak-7">Hear it</button></td>
+    </tr>
   </table>
   <p class="row">
+    <label>Scene <select id="scene" aria-label="Phrase set"></select></label>
     <label>How strict (lower = stricter) <input id="limit" type="range" min="0.2" max="2" step="0.05" value="0.8"></label>
     <span id="limit-text">0.80</span>
     <button id="forget">Forget all gestures</button>
     <label><input id="ai" type="checkbox" checked> AI sentences (gestures made in a row are joined into one sentence)</label>
   </p>
+</div>
+<div class="card" id="script-card" hidden>
+  <p class="row"><b id="script-title">Demo script</b> <span class="soft">The other person says the line; you answer with the gesture.</span>
+    <button id="script-restart">Start over</button></p>
+  <ol id="script"></ol>
 </div>
 <div class="card">
   <p class="row"><img id="now-sign" class="sign" width="120" height="90" alt="" hidden> <span id="status" class="big">Not connected</span></p>

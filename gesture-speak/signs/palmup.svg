@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 90" width="120" height="90">
+<circle cx="40" cy="18" r="9" fill="#f2c79b" stroke="#8a5a2b" stroke-width="1.6"/>
+<path d="M40,28 V66 M40,66 L34,86 M40,66 L46,86" stroke="#5b6676" stroke-width="5" stroke-linecap="round" fill="none"/>
+<g transform="translate(46,34)"><g><animateTransform attributeName="transform" type="rotate" values="0 0 0;0 0 0;0 0 0;0 0 0;0 0 0" keyTimes="0;0.3;0.55;0.85;1" dur="2s" repeatCount="indefinite"/>
+<line x1="0" y1="0" x2="0" y2="19" stroke="#2f6fed" stroke-width="5" stroke-linecap="round"/>
+<g transform="translate(0,19)"><g><animateTransform attributeName="transform" type="rotate" values="-90 0 0;-90 0 0;-90 0 0;-90 0 0;-90 0 0" keyTimes="0;0.3;0.55;0.85;1" dur="2s" repeatCount="indefinite"/>
+<line x1="0" y1="0" x2="0" y2="19" stroke="#2f6fed" stroke-width="5" stroke-linecap="round"/>
+<ellipse cx="0" cy="22" rx="5" ry="2.5" fill="#f2c79b" stroke="#8a5a2b" stroke-width="1.4"><animate attributeName="ry" values="2.5;5;5;2.5;2.5" keyTimes="0;0.3;0.55;0.85;1" dur="2s" repeatCount="indefinite"/></ellipse>
+</g></g></g></g>
+<text x="118" y="86" text-anchor="end" font-family="system-ui,sans-serif" font-size="10" fill="#1c2330">turn palm up</text>
+</svg>

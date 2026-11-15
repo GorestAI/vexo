@@ -3,3 +3,11 @@ td input:not([type="color"]) { width: 11em; }
 td.soft { font-size: 0.9em; }
 #limit { vertical-align: middle; }
 img.sign { display: block; background: #fff; border-radius: 10px; border: 1px solid #d0d4da; }
+#script { margin: 4px 0; padding-left: 1.6em; }
+#script li { display: flex; align-items: center; gap: 12px; padding: 6px 8px; border-radius: 10px; }
+#script li img.sign { width: 64px; height: 48px; flex: none; }
+#script li .they { flex: 1 1 14em; }
+#script li .you { flex: 1 1 12em; font-weight: 600; }
+#script li.now { background: color-mix(in srgb, var(--accent) 16%, transparent); outline: 2px solid var(--accent); }
+#script li.done { opacity: 0.5; }
+@media (max-width: 560px) { #script li { flex-wrap: wrap; } }
