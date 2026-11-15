@@ -74,10 +74,17 @@ shake, once or twice, is all it needs. (Prefer your own gestures? Choose "Gestur
     <option value="all">The AI guesses every drawing</option>
     <option value="off">Simple shapes only</option>
   </select></label></p>
-  <div id="stage"><video id="video" playsinline muted></video><canvas id="ink" width="640" height="480"></canvas>
-    <span id="pen-state"></span></div>
-  <div id="guess" class="row" hidden><b id="guess-text"></b> <button id="guess-yes">Say it</button> <button id="guess-no">No</button>
-    <span class="soft">or: draw a check / shake slowly to say it, draw a line / shake fast to drop it</span></div>
+  <p class="row"><label>Board size <input id="board-size" type="range" min="40" max="100" step="5" value="70"></label>
+    <button id="board-full">Full screen</button></p>
+  <div id="board">
+    <button id="board-exit">Leave full screen (Esc)</button>
+    <p id="board-caption" aria-hidden="true"></p>
+    <div id="stage"><video id="video" playsinline muted></video><canvas id="ink" width="640" height="480"></canvas>
+      <span id="pen-state"></span></div>
+    <p id="board-said" aria-hidden="true"></p>
+    <div id="guess" class="row" hidden><b id="guess-text"></b> <button id="guess-yes">Say it</button> <button id="guess-no">No</button>
+      <span class="soft">or: draw a check / shake slowly to say it, draw a line / shake fast to drop it</span></div>
+  </div>
   <div class="shapes" id="shape-tiles"></div>
 </div>
 <div class="card" id="rhythm-card">

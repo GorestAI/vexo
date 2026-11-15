@@ -43,7 +43,7 @@ function save() {
   const rphrases = Array.from({ length: COMMANDS }, (_, i) => $(`#rname-${i}`).value);
   const dphrases = Object.fromEntries(SHAPES.map(({ key }) => [key, $(`#dname-${key}`).value]));
   localStorage.setItem(STORE, JSON.stringify({ examples, phrases, rphrases, dphrases, limit: $('#limit').value, scene: $('#scene').value,
-    mode: $('#mode').value, boundary: $('#boundary').value, guessMode: $('#guess-mode').value }));
+    mode: $('#mode').value, boundary: $('#boundary').value, guessMode: $('#guess-mode').value, boardSize: $('#board-size').value }));
 }
 function load() {
   try {
@@ -58,6 +58,7 @@ function load() {
     if (kept.scene in SCENES) $('#scene').value = kept.scene;
     if (['rhythm', 'draw', 'taught'].includes(kept.mode)) $('#mode').value = kept.mode;
     if (['rest', 'all', 'off'].includes(kept.guessMode)) $('#guess-mode').value = kept.guessMode;
+    if (Number(kept.boardSize) >= 40 && Number(kept.boardSize) <= 100) $('#board-size').value = kept.boardSize;
     for (const { key } of SHAPES) if (typeof kept.dphrases?.[key] === 'string') $(`#dname-${key}`).value = kept.dphrases[key].slice(0, 60);
     if (Number(kept.boundary) >= 2 && Number(kept.boundary) <= 6) $('#boundary').value = kept.boundary;
     for (let i = 0; i < COMMANDS; i++) if (typeof kept.rphrases?.[i] === 'string') $(`#rname-${i}`).value = kept.rphrases[i].slice(0, 60);
@@ -119,6 +120,8 @@ function warmVoice() {
 function show(text, detail = '', colour = '', sign = null) {
   $('#status').textContent = text;
   $('#status').style.color = colour;
+  $('#board-said').textContent = text;            // shown under the board in full screen
+  $('#board-said').style.color = colour;
   $('#detail').textContent = detail;
   $('#now-sign').hidden = sign === null;
   if (sign !== null) $('#now-sign').src = typeof sign === 'number' ? signOf(sign) : sign;     // a table row, or a picture
@@ -212,6 +215,7 @@ function showSpoken() {
   $('#spoken').scrollTop = $('#spoken').scrollHeight;
   $('#live').textContent = live || (talk.findLast((one) => one.who === 'them')?.text ?? '');
   $('#live').classList.toggle('guess', Boolean(live));
+  $('#board-caption').textContent = $('#live').textContent;   // shown over the board in full screen
 }
 function line_(who, text, guess = false) {
   const p = document.createElement('p');
@@ -637,6 +641,31 @@ for (const shape of SHAPES) {
   $('#shape-tiles').append(tile);
 }
 $('#camera').onclick = () => (air.on ? air.stop() : air.start());
+// A bigger board: the slider, or the whole screen (Esc leaves it).
+const boardSize = () => $('#board').style.setProperty('--board-size', `${$('#board-size').value}%`);
+$('#board-size').oninput = () => { boardSize(); save(); };
+// Where the browser does not allow full screen, the board fills the window instead (.full).
+const isBig = () => Boolean(document.fullscreenElement) || $('#board').classList.contains('full');
+function showBig() { $('#board-full').textContent = isBig() ? 'Leave full screen' : 'Full screen'; }
+function leaveBig() {
+  $('#board').classList.remove('full');
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  showBig();
+}
+$('#board-full').onclick = () => {
+  if (isBig()) return leaveBig();
+  // Some browsers refuse full screen, some never answer at all: if it has not happened
+  // within a moment, fill the window instead.
+  const fill = () => { if (!document.fullscreenElement) { $('#board').classList.add('full'); showBig(); } };
+  try { $('#board').requestFullscreen().catch(fill); } catch { fill(); }
+  setTimeout(fill, 400);
+};
+$('#board-exit').onclick = leaveBig;
+document.addEventListener('fullscreenchange', () => {
+  if (document.fullscreenElement) $('#board').classList.remove('full');   // the real thing came after all
+  showBig();
+});
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && $('#board').classList.contains('full')) leaveBig(); });
 $('#guess-yes').onclick = () => guessed && sayGuess();
 $('#guess-no').onclick = () => dropGuess();
 $('#guess-mode').onchange = () => { dropGuess(true); save(); };
@@ -650,6 +679,7 @@ setInterval(() => {
   samplesThisSecond = 0;
 }, 1000);
 load();
+boardSize();
 showBoundary();
 showMode();
 showMeter(0);

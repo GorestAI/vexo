@@ -55,7 +55,8 @@ export function airDrawing({ video, ink, onShape, onState, onPen = () => {} }) {
     // A white board over the whole picture: the camera picture underneath is never seen.
     pen2d.fillStyle = '#fff';
     pen2d.fillRect(0, 0, width, height);
-    pen2d.lineWidth = 8;
+    const unit = width / 640;            // lines keep their look at any board size
+    pen2d.lineWidth = 8 * unit;
     pen2d.lineCap = pen2d.lineJoin = 'round';
     pen2d.strokeStyle = '#e5446d';
     for (const stroke of strokes) {
@@ -65,14 +66,25 @@ export function airDrawing({ video, ink, onShape, onState, onPen = () => {} }) {
     }
     if (hand) {
       pen2d.beginPath();
-      pen2d.arc(hand.x * width, hand.y * height, hand.fist ? 14 : 10, 0, 2 * Math.PI);
+      pen2d.arc(hand.x * width, hand.y * height, (hand.fist ? 14 : 10) * unit, 0, 2 * Math.PI);
       pen2d.fillStyle = hand.fist ? '#e5446d' : '#c8cdd6';
       pen2d.fill();
-      pen2d.lineWidth = 3;
+      pen2d.lineWidth = 3 * unit;
       pen2d.strokeStyle = '#1c2330';
       pen2d.stroke();
     }
   }
+  // The board can be made bigger (a slider, full screen): draw at the size it is shown, so lines stay sharp.
+  new ResizeObserver(() => {
+    const box = ink.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    const [w, h] = [Math.round(box.width * ratio), Math.round(box.height * ratio)];
+    if (w > 0 && h > 0 && (ink.width !== w || ink.height !== h)) {
+      ink.width = w;
+      ink.height = h;
+      paint();
+    }
+  }).observe(ink);
 
   function clearSoon() {
     clearTimeout(fading);
